@@ -70,11 +70,20 @@ export function Txt({
     </Text>
   );
 }
-export function Tap({ children, onPress, style, label, onLongPress }: any) {
+export function Tap({
+  children,
+  onPress,
+  style,
+  label,
+  onLongPress,
+  disabled = false,
+}: any) {
   const v = useRef(new Animated.Value(1)).current;
   return (
     <Animated.View style={{ transform: [{ scale: v }] }}>
       <Pressable
+        disabled={disabled}
+        accessibilityState={{ disabled }}
         accessibilityRole="button"
         accessibilityLabel={label}
         onLongPress={onLongPress}
@@ -133,10 +142,12 @@ export function Button({
   secondary = false,
   icon,
   style,
+  disabled = false,
 }: any) {
   const t = useTheme();
   return (
     <Tap
+      disabled={disabled}
       onPress={onPress}
       label={title}
       style={[
@@ -366,27 +377,6 @@ export function Avatar({ index = 0, size = 46, source, ring = false }: any) {
     </View>
   );
 }
-export function Tags() {
-  return (
-    <View style={{ flexDirection: "row", gap: 7, marginTop: 5 }}>
-      {["Horror", "Fantasy"].map((x, i) => (
-        <View
-          key={x}
-          style={{
-            backgroundColor: i ? "#FFBB2B" : "#AB5BE4",
-            borderRadius: 20,
-            paddingHorizontal: 10,
-            paddingVertical: 1,
-          }}
-        >
-          <Txt color="white" size={9} bold>
-            {x}
-          </Txt>
-        </View>
-      ))}
-    </View>
-  );
-}
 export function BookRow({
   book,
   onPress,
@@ -419,10 +409,7 @@ export function BookRow({
         </Tap>
       )}
       <Tap onPress={onPress} label={book.title}>
-        <Image
-          source={book.image}
-          style={{ width: 78, height: 110, borderRadius: 9 }}
-        />
+        <BookCover book={book} />
       </Tap>
       <Pressable onPress={onPress} style={{ flex: 1 }}>
         <Txt bold size={14}>
@@ -437,10 +424,14 @@ export function BookRow({
           <Icon name="eye-outline" size={15} />
           <Txt size={11} color={t.muted}>
             {" "}
-            1320
+            {"category" in book ? String(book.category) : "Book"}
           </Txt>
         </View>
-        <Tags />
+        {"available" in book && (
+          <Txt size={11} color={purple}>
+            {book.available ? "Read free" : "Reading list only"}
+          </Txt>
+        )}
       </Pressable>
       {onMore && !selectable && (
         <Tap
@@ -452,6 +443,38 @@ export function BookRow({
         </Tap>
       )}
     </View>
+  );
+}
+export function BookCover({ book, large = false }: any) {
+  const width = large ? 170 : 78;
+  const height = large ? 240 : 110;
+  if (book.id === "reading-guide")
+    return (
+      <View
+        style={{
+          width,
+          height,
+          backgroundColor: "#47329E",
+          borderRadius: 9,
+          padding: large ? 18 : 9,
+          justifyContent: "space-between",
+          borderLeftWidth: 5,
+          borderLeftColor: "#A798EF",
+        }}
+      >
+        <Txt size={large ? 12 : 7} color="#DCD4FF">
+          THE iBOOK SERIES
+        </Txt>
+        <Txt size={large ? 24 : 12} bold color="white">
+          A Small Guide to Reading
+        </Txt>
+        <Txt size={large ? 11 : 7} color="#DCD4FF">
+          ONE PAGE AT A TIME
+        </Txt>
+      </View>
+    );
+  return (
+    <Image source={book.image} style={{ width, height, borderRadius: 9 }} />
   );
 }
 export function Card({ children, style }: any) {
@@ -524,41 +547,6 @@ export function FloatArt({ name, size = 200 }: any) {
     >
       <Art name={name} size={size} />
     </Animated.View>
-  );
-}
-export function Goals({ onPress }: any) {
-  const t = useTheme();
-  return (
-    <View style={{ flexDirection: "row", gap: 16 }}>
-      {["timer", "trophy"].map((name, i) => (
-        <View style={{ flex: 1 }} key={name}>
-          <Tap
-            onPress={onPress}
-            label={i ? "Reading streak" : "Today’s reading goal"}
-            style={{
-              backgroundColor: t.dark ? t.card : "white",
-              borderRadius: 26,
-              padding: 16,
-            }}
-          >
-            <Txt size={14} bold color={t.heading}>
-              {i ? "Longest\nReading Streak" : "Today’s\nReading"}
-            </Txt>
-            <Art
-              name={name}
-              size={112}
-              style={{ width: "100%", marginVertical: 10 }}
-            />
-            <Txt color={i ? purple : t.ink} bold size={27}>
-              {i ? "16" : "10"}
-              <Txt size={9} color={i ? purple : t.muted}>
-                {i ? " Days" : " of 40 minutes"}
-              </Txt>
-            </Txt>
-          </Tap>
-        </View>
-      ))}
-    </View>
   );
 }
 export function Glass({ children, style }: any) {

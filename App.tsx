@@ -1,5 +1,6 @@
+import { StoreProvider, useStore } from "./src/store";
 import "react-native-gesture-handler";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
@@ -19,6 +20,7 @@ const Poppins_400Regular = require("@expo-google-fonts/poppins/400Regular/Poppin
 const Poppins_600SemiBold = require("@expo-google-fonts/poppins/600SemiBold/Poppins_600SemiBold.ttf");
 import {
   Glass,
+  Button,
   Header,
   Icon,
   Page,
@@ -174,143 +176,9 @@ function Main() {
     </Tabs.Navigator>
   );
 }
-const groups: [string, [string, string, object?][]][] = [
-  [
-    "Start",
-    [
-      ["Splash", "Splash"],
-      ["Onboarding", "Onboarding"],
-      ["Sign in", "SignIn"],
-      ["Sign up", "SignUp"],
-      ["Forgot password", "Forgot"],
-      ["Verification", "Verification"],
-    ],
-  ],
-  [
-    "Main tabs",
-    [
-      ["Home", "Main", { screen: "Home" }],
-      ["Library", "Main", { screen: "Library" }],
-      ["Store", "Main", { screen: "Store" }],
-      ["Search", "Main", { screen: "Search" }],
-      ["Horror category", "Category", { category: "Horror" }],
-    ],
-  ],
-  [
-    "Books & reader",
-    [
-      ["Mexican Gothic", "Book", { bookId: "mexican" }],
-      ["Murder Board · purchase", "Book", { bookId: "murder", purchase: true }],
-      ["Reading progress", "Reading"],
-      ["Reader · themes and settings", "Reader"],
-      ["Write a review", "WriteReview"],
-      ["Book actions", "BookActions"],
-      ["Save to collection", "SaveCollection"],
-      ["Share preview", "Share"],
-      ["Download progress", "Download"],
-    ],
-  ],
-  [
-    "Collections",
-    [
-      ["Collections", "Collections"],
-      ["Empty collections", "Collections", { empty: true }],
-      ["Collection detail", "Collection"],
-      ["My Collections", "Collection", { name: "My Collections" }],
-      ["Edit collection list", "CollectionList"],
-      ["New collection", "NewCollection"],
-      ["Add books", "AddBooks"],
-      ["Delete collection popup", "DeleteCollection"],
-    ],
-  ],
-  [
-    "Friends",
-    [
-      ["Friends feed", "Friends"],
-      ["No friends", "Invite", { empty: true }],
-      ["Invite friends", "Invite"],
-      ["Discover people", "Discover"],
-      ["Search friends", "FriendSearch"],
-      ["Chat", "Chat"],
-      ["Friend profile", "FriendProfile"],
-      ["Friend actions", "FriendActions"],
-    ],
-  ],
-  [
-    "Profile & settings",
-    [
-      ["Profile", "Profile"],
-      ["Author detail", "Author"],
-      ["Membership", "Membership"],
-      ["Profile menu", "ProfileMenu"],
-      ["Settings · light / dark", "Settings"],
-      ["Edit Profile", "EditProfile"],
-      ["Reading goal", "Goals"],
-      ["Goal picker", "GoalPicker"],
-      ["Notifications", "Notifications"],
-      ["Empty notifications", "Notifications", { empty: true }],
-      ["Gift Code", "Gift"],
-      ["Help Center", "Help"],
-    ],
-  ],
-  [
-    "Purchase previews",
-    [
-      ["Purchase details", "Purchase"],
-      ["Payment success", "Purchase", { status: "success" }],
-      ["Payment failure", "Purchase", { status: "failed" }],
-      ["Payment methods", "PaymentMethods"],
-      ["Add payment method", "AddPayment"],
-      ["App Store preview", "AppStore"],
-    ],
-  ],
-  [
-    "Illustrated popups",
-    [
-      ["Download complete", "Popup", { kind: "check" }],
-      ["Tip", "Popup", { kind: "bulb" }],
-      ["Coffee", "Popup", { kind: "coffee" }],
-      [
-        "Goal selected",
-        "Popup",
-        {
-          kind: "timer",
-          title: "40 minute goal selected!",
-          subtitle: "Time to Read!",
-        },
-      ],
-    ],
-  ],
-];
-function Gallery({ navigation }: any) {
-  const t = useTheme();
-  return (
-    <Page>
-      <Header navigation={navigation} title="Screen Gallery" />
-      <Txt size={12}>Explore every UI flow and alternate state.</Txt>
-      <Row
-        title={t.dark ? "Dark appearance" : "Light appearance"}
-        icon={t.dark ? "moon" : "sunny"}
-        onPress={() => t.setDark(!t.dark)}
-      />
-      {groups.map(([title, items]) => (
-        <Section key={title} title={title}>
-          {items.map(([name, dest, params]) => (
-            <Row
-              key={name}
-              title={name}
-              icon="phone-portrait-outline"
-              onPress={() => navigation.navigate(dest, params)}
-            />
-          ))}
-        </Section>
-      ))}
-    </Page>
-  );
-}
 const screens: any = {
   Main,
-  Gallery,
+
   Splash,
   Onboarding,
   SignIn: Auth,
@@ -357,7 +225,6 @@ const appLinks: any = {
   prefixes: ["ibook://"],
   config: {
     screens: {
-      Gallery: "gallery",
       Main: {
         screens: {
           Home: "home",
@@ -367,8 +234,8 @@ const appLinks: any = {
         },
       },
       Settings: "settings",
-      Reader: "reader",
-      Book: "book",
+      Reader: "reader/:bookId?",
+      Book: "book/:bookId?",
       Onboarding: "onboarding",
       Profile: "profile",
       Collections: "collections",
@@ -378,13 +245,17 @@ const appLinks: any = {
     },
   },
 };
-export default function App() {
+function AppContent() {
+  const store = useStore();
   const [dark, setDark] = useState(false);
+  useEffect(() => {
+    setDark(store.user?.dark || false);
+  }, [store.user?.dark]);
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
   });
-  if (!fontsLoaded && !fontError)
+  if (!store.ready || (!fontsLoaded && !fontError))
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator color={purple} />
@@ -395,48 +266,71 @@ export default function App() {
       <SafeAreaProvider>
         <ThemeContext.Provider value={{ dark, setDark }}>
           <StatusBar style={dark ? "light" : "dark"} />
-          <NavigationContainer
-            theme={dark ? DarkTheme : DefaultTheme}
-            linking={appLinks}
-          >
-            <Stack.Navigator
-              initialRouteName="Splash"
-              screenOptions={{
-                headerShown: false,
-                animation: "slide_from_right",
-                contentStyle: { backgroundColor: dark ? "#111" : "white" },
-                gestureEnabled: true,
-              }}
+          {store.error ? (
+            <Page>
+              <TitleFallback />
+              <Txt>{store.error}</Txt>
+              <Button title="Try again" onPress={store.retry} />
+            </Page>
+          ) : (
+            <NavigationContainer
+              theme={dark ? DarkTheme : DefaultTheme}
+              linking={appLinks}
             >
-              {Object.entries(screens).map(([name, component]) => (
-                <Stack.Screen
-                  key={name}
-                  name={name}
-                  component={component as any}
-                />
-              ))}
-              {Object.entries({
-                Popup,
-                DeleteCollection,
-                ProfileMenu,
-                FriendActions,
-                GoalPicker,
-              }).map(([name, component]) => (
-                <Stack.Screen
-                  key={name}
-                  name={name}
-                  component={component}
-                  options={{
-                    presentation: "transparentModal",
-                    animation: "fade",
-                    contentStyle: { backgroundColor: "transparent" },
-                  }}
-                />
-              ))}
-            </Stack.Navigator>
-          </NavigationContainer>
+              <Stack.Navigator
+                initialRouteName={store.user ? "Main" : "Onboarding"}
+                screenOptions={{
+                  headerShown: false,
+                  animation: "slide_from_right",
+                  contentStyle: { backgroundColor: dark ? "#111" : "white" },
+                  gestureEnabled: true,
+                }}
+              >
+                {Object.entries(screens).map(([name, component]) => (
+                  <Stack.Screen
+                    key={name}
+                    name={name}
+                    component={component as any}
+                  />
+                ))}
+                {Object.entries({
+                  Popup,
+                  DeleteCollection,
+                  ProfileMenu,
+                  FriendActions,
+                  GoalPicker,
+                }).map(([name, component]) => (
+                  <Stack.Screen
+                    key={name}
+                    name={name}
+                    component={component}
+                    options={{
+                      presentation: "transparentModal",
+                      animation: "fade",
+                      contentStyle: { backgroundColor: "transparent" },
+                    }}
+                  />
+                ))}
+              </Stack.Navigator>
+            </NavigationContainer>
+          )}
         </ThemeContext.Provider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+function TitleFallback() {
+  return (
+    <Txt size={26} bold style={{ marginVertical: 24 }}>
+      Unable to connect
+    </Txt>
+  );
+}
+
+export default function App() {
+  return (
+    <StoreProvider>
+      <AppContent />
+    </StoreProvider>
   );
 }

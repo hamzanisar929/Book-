@@ -4,3 +4,9 @@ dist/
 web-build/
 .DS_Store
 *.log
+.env
+.env.*
+!.env.example
+server/.env
+test-results/
+playwright-report/

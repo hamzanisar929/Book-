@@ -1,3 +1,5 @@
+import { useStore, api } from "./store";
+import { Feedback, useAction } from "./functional-ui";
 import React, { useEffect, useState } from "react";
 import {
   Image,
@@ -21,10 +23,14 @@ import {
   useTheme,
 } from "./ui";
 export function Splash({ navigation }: any) {
+  const store = useStore();
   useEffect(() => {
-    const id = setTimeout(() => navigation.replace("Onboarding"), 1600);
+    const id = setTimeout(
+      () => navigation.replace(store.user ? "Main" : "Onboarding"),
+      1600,
+    );
     return () => clearTimeout(id);
-  }, []);
+  }, [store.user]);
   return (
     <Page scroll={false}>
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -119,198 +125,139 @@ export function Onboarding({ navigation }: any) {
 }
 export function Auth({ navigation, route }: any) {
   const signup = route.name === "SignUp";
-  const t = useTheme();
-  const [check, setCheck] = useState(false);
+  const store = useStore(),
+    action = useAction();
+  const [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [name, setName] = useState("");
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Page style={{ paddingTop: 80 }}>
-        <Title>{signup ? "Sign up with Email" : "Sign in with Email"}</Title>
-        <Txt color={t.muted} style={{ marginBottom: 38 }}>
-          {signup
-            ? "Create account and enjoy your reading!"
-            : "Input your registered account!"}
+      <Page>
+        <Header navigation={navigation} />
+        <Title>{signup ? "Create your account" : "Welcome back"}</Title>
+        <Txt style={{ marginBottom: 30 }}>
+          Your books, progress, and conversations in one place.
         </Txt>
-        <Field
-          label="Email"
-          placeholder="Type your email"
-          keyboardType="email-address"
-        />
         {signup && (
           <Field
-            label="Phone number"
-            placeholder="🇺🇸   Type your phone number"
-            keyboardType="phone-pad"
+            label="Name"
+            value={name}
+            onChangeText={setName}
+            maxLength={80}
           />
         )}
         <Field
-          label="Password"
-          placeholder="Type your password"
-          secureTextEntry
+          label="Email"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
         />
-        {signup ? (
-          <Tap
-            onPress={() => setCheck(!check)}
-            style={{ flexDirection: "row", gap: 12, marginBottom: 24 }}
-          >
-            <Icon name={check ? "checkbox" : "square-outline"} size={22} />
-            <Txt size={12} color={t.muted} style={{ flex: 1 }}>
-              By Creating your account you have to agree with our{" "}
-              <Txt size={12} bold color={purple}>
-                Terms and Condition
-              </Txt>
-            </Txt>
-          </Tap>
-        ) : (
-          <Tap
-            onPress={() => navigation.navigate("Forgot")}
-            style={{ alignItems: "center", marginBottom: 26 }}
-          >
-            <Txt color={purple}>Forgot password?</Txt>
-          </Tap>
-        )}
+        <Field
+          label="Password"
+          placeholder="At least 10 characters"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+        <Feedback {...action} />
         <Button
-          title={signup ? "Sign Up Now" : "Sign In"}
+          title={
+            action.busy ? "Please wait…" : signup ? "Sign Up Now" : "Sign In"
+          }
+          disabled={action.busy}
           onPress={() =>
-            signup
-              ? navigation.navigate("Verification")
-              : navigation.replace("Main")
+            action.run(async () => {
+              await store.login(signup, {
+                email,
+                password,
+                ...(signup ? { name } : {}),
+              });
+              navigation.reset({ index: 0, routes: [{ name: "Main" }] });
+            })
           }
         />
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 18,
-            marginVertical: 28,
-          }}
-        >
-          <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
-          <Txt color={t.muted}>Or</Txt>
-          <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
-        </View>
         <Button
-          title="Sign in with Apple"
-          icon="logo-apple"
+          title={signup ? "Already have an account? Sign In" : "Create account"}
           secondary
-          onPress={() => navigation.replace("Main")}
-        />
-        <Button
-          title="Sign in with Google"
-          icon="logo-google"
-          secondary
-          style={{ marginTop: 14 }}
-          onPress={() => navigation.replace("Main")}
-        />
-        <Tap
+          style={{ marginTop: 16 }}
           onPress={() => navigation.replace(signup ? "SignIn" : "SignUp")}
-          style={{ alignItems: "center", paddingVertical: 28 }}
-        >
-          <Txt size={13} color={t.muted}>
-            {signup ? "Have an account?" : "Don’t have an account?"}{" "}
-            <Txt color={purple} bold size={13}>
-              {signup ? "Sign in here" : "Sign up here"}
-            </Txt>
-          </Txt>
-        </Tap>
+        />
+        {!signup && (
+          <Button
+            title="Forgot password?"
+            secondary
+            style={{ marginTop: 16 }}
+            onPress={() => navigation.navigate("Forgot")}
+          />
+        )}
       </Page>
     </KeyboardAvoidingView>
   );
 }
 export function Forgot({ navigation }: any) {
-  const [choice, setChoice] = useState(0);
-  const t = useTheme();
+  const [email, setEmail] = useState(""),
+    [message, setMessage] = useState("");
+  const action = useAction();
   return (
     <Page>
-      <Header navigation={navigation} />
-      <Title>Forgot password</Title>
-      <Txt color={t.muted} style={{ marginBottom: 30 }}>
-        Please select option to send link reset password
+      <Header navigation={navigation} title="Reset password" />
+      <Txt style={{ marginBottom: 24 }}>
+        Password reset requires the app owner to configure email delivery. No
+        reset message will be sent until that service is connected.
       </Txt>
-      {["email", "whatsapp"].map((s, i) => (
-        <Tap
-          key={s}
-          onPress={() => setChoice(i)}
-          style={{
-            borderWidth: 1,
-            borderColor: choice === i ? purple : t.line,
-            borderRadius: 20,
-            padding: 18,
-            marginBottom: 22,
-            flexDirection: "row",
-            gap: 14,
-          }}
-        >
-          <Icon name={i ? "logo-whatsapp" : "mail-open"} />
-          <View style={{ flex: 1 }}>
-            <Txt bold color={choice === i ? purple : t.ink}>
-              Send to your {s}
-            </Txt>
-            <Txt size={12} color={t.muted} style={{ marginTop: 8 }}>
-              Link reset will be sent to your {s} account registered
-            </Txt>
-          </View>
-        </Tap>
-      ))}
+      <Field
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+      />
+      <Feedback {...action} message={message} />
       <Button
-        title="Send Link"
+        title="Request reset code"
+        disabled={action.busy}
         onPress={() =>
-          navigation.navigate("Popup", {
-            kind: "check",
-            title: "Reset link sent",
-            subtitle: "Check your selected account.",
-            next: "SignIn",
+          action.run(async () => {
+            const r = await api("/auth/forgot", "POST", { email });
+            setMessage(r.message);
           })
         }
       />
-      <Tap
-        onPress={() =>
-          navigation.navigate("Popup", { kind: "check", title: "Link resent" })
-        }
-        style={{ alignItems: "center", padding: 26 }}
-      >
-        <Txt color={t.muted}>
-          Didn’t receive link? <Txt color={purple}>Resend Link</Txt>
-        </Txt>
-      </Tap>
+      <Button
+        title="I have a reset code"
+        secondary
+        style={{ marginTop: 16 }}
+        onPress={() => navigation.navigate("Verification")}
+      />
     </Page>
   );
 }
 export function Verification({ navigation }: any) {
+  const [token, setToken] = useState(""),
+    [password, setPassword] = useState("");
+  const action = useAction();
   return (
     <Page>
-      <Header navigation={navigation} />
-      <Title>Verification</Title>
-      <Txt>
-        We have sent code to your whatsapp number <Txt bold>+6287784662331</Txt>
-      </Txt>
-      <View style={{ flexDirection: "row", gap: 12, marginTop: 36 }}>
-        {[0, 1, 2, 3].map((i) => (
-          <View key={i} style={{ flex: 1 }}>
-            <Field
-              label={"Digit " + (i + 1)}
-              placeholder=""
-              keyboardType="number-pad"
-              maxLength={1}
-            />
-          </View>
-        ))}
-      </View>
-      <Tap
-        onPress={() =>
-          navigation.navigate("Popup", { kind: "check", title: "Code resent" })
-        }
-      >
-        <Txt>
-          Didn’t receive code? <Txt color={purple}>Resend</Txt>
-        </Txt>
-      </Tap>
+      <Header navigation={navigation} title="Set a new password" />
+      <Field label="Reset code" value={token} onChangeText={setToken} />
+      <Field
+        label="New password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+      <Feedback {...action} />
       <Button
-        title="Verify"
-        style={{ marginTop: 32 }}
-        onPress={() => navigation.replace("Main")}
+        title="Reset password"
+        disabled={action.busy}
+        onPress={() =>
+          action.run(async () => {
+            await api("/auth/reset", "POST", { token: token.trim(), password });
+            navigation.replace("SignIn");
+          })
+        }
       />
     </Page>
   );

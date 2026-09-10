@@ -1,334 +1,257 @@
 import React, { useState } from "react";
-import { View, TextInput } from "react-native";
-import { books, collections, purple } from "./data";
+import { View } from "react-native";
+import { useStore } from "./store";
+import { Empty, Feedback, RequireAccount, useAction } from "./functional-ui";
 import {
   BookRow,
-  ModalBackdrop,
   Button,
-  Card,
   Field,
-  FloatArt,
   Header,
-  Icon,
   IconButton,
   Page,
   Row,
-  Section,
-  Tap,
   Title,
   Txt,
-  useTheme,
 } from "./ui";
-export function Collections({ navigation, route }: any) {
-  const t = useTheme();
-  const empty = route.params?.empty;
+export function Collections({ navigation }: any) {
+  const store = useStore();
   return (
-    <Page purpleBg>
-      <Header
-        navigation={navigation}
-        light={!t.dark}
-        title="Collections"
-        right={
-          <IconButton
-            light={!t.dark}
-            name="settings-outline"
-            onPress={() => navigation.navigate("CollectionList")}
-          />
-        }
-      />
-      <Txt size={12} color={t.dark ? t.muted : "#FFFFFFBB"}>
-        Synthesize favorite books your way. Everyone can see and share this
-        collection.
-      </Txt>
-      {empty ? (
-        <>
-          <View
-            style={{ flex: 1, justifyContent: "center", marginVertical: 60 }}
-          >
-            <FloatArt name="empty" size={260} />
-            <Txt
-              bold
-              color={t.dark ? purple : "white"}
-              style={{ textAlign: "center", marginTop: 32 }}
-            >
-              No Collections Right Now!
-            </Txt>
-          </View>
-          <Button
-            title="New Collection"
-            secondary
-            onPress={() => navigation.navigate("NewCollection")}
-          />
-        </>
-      ) : (
-        <>
-          {collections.slice(0, 3).map((name, i) => (
-            <Section
-              key={name}
-              title={name}
-              light={!t.dark}
-              right={
-                <Tap
-                  onPress={() => navigation.navigate("Collection", { name })}
-                >
-                  <Icon name="chevron-forward" color="white" />
-                </Tap>
-              }
-            >
-              <Card>
-                {books.slice(4 + i, 6 + i).map((b) => (
-                  <BookRow
-                    key={b.id}
-                    book={b}
-                    onPress={() => navigation.navigate("Collection", { name })}
-                  />
-                ))}
-              </Card>
-            </Section>
-          ))}
-          <Button
-            title="New Collection"
-            secondary
-            style={{ marginTop: 24 }}
-            onPress={() => navigation.navigate("NewCollection")}
-          />
-        </>
-      )}
-    </Page>
-  );
-}
-export function Collection({ navigation, route }: any) {
-  const t = useTheme();
-  const [editing, setEditing] = useState(false);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [title, setTitle] = useState(route.params?.name || "Self help book");
-  return (
-    <Page>
-      <Header
-        navigation={navigation}
-        right={
-          <>
-            <IconButton
-              name="add"
-              onPress={() => navigation.navigate("AddBooks")}
-            />
-            <IconButton
-              name={editing ? "checkmark-circle" : "settings-outline"}
-              onPress={() => setEditing(!editing)}
-            />
-          </>
-        }
-      />
-      {editing ? (
-        <>
-          <Txt color={t.muted} size={12}>
-            Title
-          </Txt>
-          <TextInput
-            accessibilityLabel="Collection title"
-            value={title}
-            onChangeText={setTitle}
-            style={{
-              fontFamily: "Poppins_600SemiBold",
-              fontSize: 29,
-              color: t.ink,
-              marginBottom: 10,
-            }}
-          />
-        </>
-      ) : (
-        <Title>{title}</Title>
-      )}
-      <Txt color={t.muted} size={12} style={{ marginBottom: 28 }}>
-        From individual reflection to the power of positive thought and from
-        every perspective and theism.
-      </Txt>
-      {selected.length > 0 && editing && (
-        <Card
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 24,
-            padding: 12,
-          }}
-        >
-          <Txt>Selected {selected.length} books</Txt>
-          <IconButton
-            name="folder-open-outline"
-            onPress={() => navigation.navigate("SaveCollection")}
-          />
-          <IconButton
-            name="trash"
-            onPress={() => navigation.navigate("DeleteCollection")}
-          />
-        </Card>
-      )}
-      {books.slice(2, 9).map((b) => (
-        <BookRow
-          key={b.id}
-          book={b}
-          selectable={editing}
-          selected={selected.includes(b.id)}
-          onPress={() => navigation.navigate("Book", { bookId: b.id })}
-          onMore={() =>
-            editing
-              ? setSelected(
-                  selected.includes(b.id)
-                    ? selected.filter((x) => x !== b.id)
-                    : [...selected, b.id],
-                )
-              : navigation.navigate("BookActions", { bookId: b.id })
-          }
-        />
-      ))}
-    </Page>
-  );
-}
-export function CollectionList({ navigation }: any) {
-  const [removed, setRemoved] = useState<string[]>([]);
-  return (
-    <Page>
-      <Header navigation={navigation} title="Collections" />
-      <Txt size={12} style={{ marginBottom: 20 }}>
-        Synthesize favorite books your way. Everyone can see and share this
-        collection.
-      </Txt>
-      {collections
-        .filter((x) => !removed.includes(x))
-        .map((s, i) => (
+    <RequireAccount navigation={navigation}>
+      <Page>
+        <Header navigation={navigation} title="Collections" />
+        <Txt>Your personal shelves, saved across devices.</Txt>
+        {!store.collections.length && (
+          <Empty text="No collections yet. Create your first shelf." />
+        )}
+        {store.collections.map((c) => (
           <Row
-            key={s}
-            title={s}
-            icon={
-              [
-                "folder-outline",
-                "folder-outline",
-                "folder-outline",
-                "folder-outline",
-                "folder-outline",
-                "heart",
-                "bag-check-outline",
-                "checkmark-circle",
-                "headset-outline",
-              ][i]
-            }
-            onPress={() => navigation.navigate("Collection", { name: s })}
-            trailing={
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
-              >
-                <Txt>{[4, 3, 1, 5, 5, 36, 18, 12, 0][i]}</Txt>
-                <Tap
-                  label={"Remove " + s}
-                  onPress={() => setRemoved([...removed, s])}
-                >
-                  <Icon name="trash-outline" size={17} />
-                </Tap>
-                <Icon name="chevron-forward" size={15} />
-              </View>
+            key={c.id}
+            title={`${c.name} (${c.book_ids.length})`}
+            icon="folder-outline"
+            onPress={() =>
+              navigation.navigate("Collection", { collectionId: c.id })
             }
           />
         ))}
-      <Row
-        title="New Collection"
-        icon="add-circle"
-        color={purple}
-        onPress={() => navigation.navigate("NewCollection")}
-      />
-    </Page>
+        <Button
+          title="New Collection"
+          style={{ marginTop: 24 }}
+          onPress={() => navigation.navigate("NewCollection")}
+        />
+      </Page>
+    </RequireAccount>
   );
 }
-export function NewCollection({ navigation }: any) {
+export const CollectionList = Collections;
+export function Collection({ navigation, route }: any) {
+  const store = useStore(),
+    action = useAction();
+  const c = store.collections.find((c) => c.id === route.params?.collectionId);
+  const [editing, setEditing] = useState(false),
+    [name, setName] = useState(c?.name || "");
+  if (!c)
+    return (
+      <Page>
+        <Header navigation={navigation} />
+        <Empty text="This collection no longer exists." />
+        <Button
+          title="View collections"
+          onPress={() => navigation.navigate("Collections")}
+        />
+      </Page>
+    );
+  return (
+    <RequireAccount navigation={navigation}>
+      <Page>
+        <Header
+          navigation={navigation}
+          title={c.name}
+          right={
+            <IconButton
+              name="create-outline"
+              label="Rename collection"
+              onPress={() => {
+                setName(c.name);
+                setEditing(!editing);
+              }}
+            />
+          }
+        />
+        <Feedback {...action} />
+        {editing && (
+          <>
+            <Field
+              label="Collection name"
+              value={name}
+              onChangeText={setName}
+              maxLength={80}
+            />
+            <Button
+              title="Save name"
+              disabled={action.busy}
+              onPress={() =>
+                action.run(async () => {
+                  await store.mutate("/collections/" + c.id, "PATCH", { name });
+                  setEditing(false);
+                })
+              }
+            />
+          </>
+        )}
+        {!c.book_ids.length && (
+          <Empty text="No books in this collection yet." />
+        )}
+        {store.books
+          .filter((b) => c.book_ids.includes(b.id))
+          .map((b) => (
+            <View key={b.id}>
+              <BookRow
+                book={b}
+                onPress={() => navigation.navigate("Book", { bookId: b.id })}
+              />
+              {editing && (
+                <Button
+                  title={"Remove " + b.title}
+                  secondary
+                  disabled={action.busy}
+                  style={{ marginBottom: 20 }}
+                  onPress={() =>
+                    action.run(() =>
+                      store.mutate("/collections/" + c.id + "/books", "PUT", {
+                        bookIds: c.book_ids.filter((id) => id !== b.id),
+                      }),
+                    )
+                  }
+                />
+              )}
+            </View>
+          ))}
+        <Button
+          title="Add Books"
+          style={{ marginTop: 20 }}
+          onPress={() =>
+            navigation.navigate("AddBooks", { collectionId: c.id })
+          }
+        />
+        <Button
+          title="Delete collection"
+          secondary
+          style={{ marginTop: 12 }}
+          onPress={() =>
+            navigation.navigate("DeleteCollection", { collectionId: c.id })
+          }
+        />
+      </Page>
+    </RequireAccount>
+  );
+}
+export function NewCollection({ navigation, route }: any) {
+  const store = useStore(),
+    action = useAction();
   const [name, setName] = useState("");
   return (
-    <Page>
-      <Header navigation={navigation} title="New Collection" />
-      <Field
-        label="Title"
-        placeholder="Name your collection"
-        value={name}
-        onChangeText={setName}
-      />
-      <View style={{ flex: 1, justifyContent: "center", marginVertical: 30 }}>
-        <FloatArt name="empty" size={260} />
-        <Txt bold style={{ textAlign: "center", marginTop: 30 }}>
-          No Book in Collection
-        </Txt>
-      </View>
-      <Button
-        title="Add Books"
-        onPress={() =>
-          navigation.navigate("AddBooks", { name: name || "New Collection" })
-        }
-      />
-    </Page>
+    <RequireAccount navigation={navigation}>
+      <Page>
+        <Header navigation={navigation} title="New Collection" />
+        <Field
+          label="Title"
+          placeholder="Name your collection"
+          value={name}
+          onChangeText={setName}
+          maxLength={80}
+        />
+        <Feedback {...action} />
+        <Button
+          title="Create collection"
+          disabled={action.busy}
+          onPress={() =>
+            action.run(async () => {
+              const c = await store.mutate("/collections", "POST", { name });
+              if (route.params?.bookId)
+                await store.mutate("/collections/" + c.id + "/books", "PUT", {
+                  bookIds: [route.params.bookId],
+                });
+              navigation.replace("Collection", { collectionId: c.id });
+            })
+          }
+        />
+      </Page>
+    </RequireAccount>
   );
 }
 export function AddBooks({ navigation, route }: any) {
-  const [selected, setSelected] = useState<string[]>(["burning"]);
+  const store = useStore(),
+    action = useAction();
+  const c = store.collections.find((c) => c.id === route.params?.collectionId);
+  const [selected, setSelected] = useState<string[]>(c?.book_ids || []),
+    [q, setQ] = useState("");
+  const toggle = (id: string) =>
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  return (
+    <RequireAccount navigation={navigation}>
+      <Page>
+        <Header navigation={navigation} title="Choose books" />
+        <Field label="Search books" value={q} onChangeText={setQ} />
+        {store.books
+          .filter((b) =>
+            (b.title + " " + b.author).toLowerCase().includes(q.toLowerCase()),
+          )
+          .map((b) => (
+            <BookRow
+              key={b.id}
+              book={b}
+              selectable
+              selected={selected.includes(b.id)}
+              onPress={() => toggle(b.id)}
+            />
+          ))}
+        <Feedback {...action} />
+        <Button
+          title={`Save ${selected.length} books`}
+          disabled={!c || action.busy}
+          onPress={() =>
+            action.run(async () => {
+              await store.mutate("/collections/" + c!.id + "/books", "PUT", {
+                bookIds: selected,
+              });
+              navigation.goBack();
+            })
+          }
+        />
+      </Page>
+    </RequireAccount>
+  );
+}
+export function DeleteCollection({ navigation, route }: any) {
+  const store = useStore(),
+    action = useAction();
+  const c = store.collections.find((c) => c.id === route.params?.collectionId);
   return (
     <Page>
-      <Header navigation={navigation} title="Purchased book" />
-      <Card>
-        <Field
-          placeholder="Enter the title of the book"
-          icon="search-outline"
-        />
-        {books.slice(2, 6).map((b) => (
-          <BookRow
-            key={b.id}
-            book={b}
-            selectable
-            selected={selected.includes(b.id)}
-            onPress={() =>
-              setSelected(
-                selected.includes(b.id)
-                  ? selected.filter((x) => x !== b.id)
-                  : [...selected, b.id],
-              )
-            }
-          />
-        ))}
-      </Card>
-      <View style={{ flex: 1, minHeight: 20 }} />
+      <Header navigation={navigation} title="Delete collection?" />
+      <Title>{c?.name}</Title>
+      <Txt>
+        The collection will be removed. Its books remain in your library.
+      </Txt>
+      <Feedback {...action} />
       <Button
-        title="Done"
+        title="Delete collection"
+        disabled={!c || action.busy}
         onPress={() =>
-          navigation.replace("Collection", {
-            name: route.params?.name || "Self help book",
+          action.run(async () => {
+            await store.mutate("/collections/" + c!.id, "DELETE");
+            navigation.popTo("Collections");
           })
         }
       />
-    </Page>
-  );
-}
-export function DeleteCollection({ navigation }: any) {
-  return (
-    <ModalBackdrop
-      style={{
-        flex: 1,
-        backgroundColor: "#00000099",
-        padding: 32,
-        justifyContent: "center",
-      }}
-    >
-      <Card style={{ alignItems: "center", marginBottom: 60 }}>
-        <FloatArt name="trash" size={230} />
-        <Txt bold style={{ textAlign: "center", marginTop: 20 }}>
-          Your book has still{"\n"}been purchased
-        </Txt>
-      </Card>
       <Button
-        title="Remove from Collection"
+        title="Cancel"
         secondary
-        onPress={() => navigation.goBack()}
-      />
-      <Button
-        title="Remove Everywhere"
         style={{ marginTop: 12 }}
         onPress={() => navigation.goBack()}
       />
-    </ModalBackdrop>
+    </Page>
   );
 }
