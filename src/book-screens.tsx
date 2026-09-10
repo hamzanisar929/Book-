@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
+  ScrollView,
   Image,
   Platform,
   Share as NativeShare,
@@ -157,6 +158,7 @@ export function Reader({ navigation, route }: any) {
     ),
     [theme, setTheme] = useState(store.user?.reader_settings.theme || "paper");
   const currentUser = useRef(store.user);
+  const scroll = useRef<ScrollView>(null);
   useEffect(() => {
     if (
       Number.isInteger(linkedPage) &&
@@ -208,11 +210,12 @@ export function Reader({ navigation, route }: any) {
     await store.mutate("/library/" + id, "PUT", { page: next, finished });
     setPage(next);
     navigation.setParams({ page: next });
+    scroll.current?.scrollTo({ y: 0, animated: true });
   }
   const chapter = book?.chapters?.[page];
   return (
     <RequireAccount navigation={navigation}>
-      <Page>
+      <Page scrollRef={scroll}>
         <Header
           navigation={navigation}
           title={book?.title || "Reader"}
@@ -297,7 +300,7 @@ export function Reader({ navigation, route }: any) {
                 }}
               >
                 <Txt size={13} color={theme === "dark" ? "#CDC9DE" : "#655E55"}>
-                  Chapter {page + 1} of {book.chapters.length}
+                  Page {page + 1} of {book.chapters.length}
                 </Txt>
                 <Txt
                   bold
@@ -310,11 +313,15 @@ export function Reader({ navigation, route }: any) {
                 <Txt
                   size={fontSize}
                   color={theme === "dark" ? "#ECE7F3" : "#34303D"}
-                  style={{ lineHeight: fontSize * 1.8 }}
+                  style={{
+                    lineHeight: fontSize * 1.85,
+                    fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
+                  }}
                 >
                   {chapter.text}
                 </Txt>
               </View>
+              <PageReels bookId={id} page={page} navigation={navigation} />
               <View
                 style={{
                   flexDirection: "row",
@@ -332,7 +339,7 @@ export function Reader({ navigation, route }: any) {
                   title={
                     page === book.chapters.length - 1
                       ? "Finish book"
-                      : "Next chapter"
+                      : "Continue reading"
                   }
                   disabled={action.busy}
                   onPress={() =>
@@ -345,7 +352,7 @@ export function Reader({ navigation, route }: any) {
                   }
                 />
               </View>
-              <PageReels bookId={id} page={page} navigation={navigation} />
+
               <Button
                 title={
                   entry?.bookmarked ? "Remove bookmark" : "Bookmark this book"
@@ -363,8 +370,8 @@ export function Reader({ navigation, route }: any) {
                 }
               />
               <Txt size={12} style={{ marginTop: 16 }}>
-                Your position is saved when you change chapters or bookmark.
-                Reading time is saved while this screen is active.
+                Your position is saved when you turn pages or bookmark. Reading
+                time is saved while this screen is active.
               </Txt>
             </>
           )

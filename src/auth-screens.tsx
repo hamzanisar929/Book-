@@ -1,3 +1,5 @@
+import { clerkKey } from "./clerk-shell";
+import { LinearGradient } from "expo-linear-gradient";
 import { useStore, api } from "./store";
 import { Feedback, useAction } from "./functional-ui";
 import React, { useEffect, useState } from "react";
@@ -51,75 +53,118 @@ export function Splash({ navigation }: any) {
 export function Onboarding({ navigation }: any) {
   const [step, setStep] = useState(0);
   const t = useTheme();
-  const { height, width } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   return (
-    <Page>
+    <Page style={{ paddingHorizontal: 0, paddingTop: 0 }}>
       <View
         style={{
-          flexDirection: "row",
-          gap: 12,
-          marginTop: 16,
-          marginBottom: 24,
+          height: Math.min(height * 0.56, 560),
+          backgroundColor: "#1C1938",
         }}
       >
-        {[0, 1, 2].map((i) => (
-          <Tap
-            key={i}
-            label={"Onboarding " + (i + 1)}
-            onPress={() => setStep(i)}
-            style={{
-              width: Math.min((width - 72) / 3, 245),
-              height: 4,
-              borderRadius: 4,
-              backgroundColor: i <= step ? purple : t.line,
-            }}
-          />
-        ))}
+        <Image
+          source={art.hero}
+          style={{ width: "100%", height: "100%" }}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={["#10111700", t.bg]}
+          style={{
+            position: "absolute",
+            bottom: 0,
+            height: 100,
+            width: "100%",
+          }}
+        />
+        <View
+          style={{
+            position: "absolute",
+            top: 55,
+            left: 28,
+            flexDirection: "row",
+            gap: 9,
+            alignItems: "center",
+          }}
+        >
+          <Icon name="book" color="white" />
+          <Txt bold color="white" size={20}>
+            iBook
+          </Txt>
+        </View>
       </View>
-      <Image
-        source={
-          art[`onboard${step + 1}${t.dark ? "-dark" : ""}` as keyof typeof art]
-        }
-        style={{
-          width: "100%",
-          height: Math.min(height * 0.47, 480),
-          marginBottom: 32,
-        }}
-        resizeMode="contain"
-      />
-      <Title>
-        {
-          [
-            "Track your daily\nprogress",
-            "Challenge with\nFriends",
-            "Join the Weekly\nChallenge",
-          ][step]
-        }
-      </Title>
-      <Txt
-        size={15}
-        color={t.muted}
-        style={{ lineHeight: 25, marginBottom: 36 }}
-      >
-        {step === 0
-          ? "Save your progress in one application, and track your reading journey."
-          : "Let’s start the week with a challenge with your best friends"}
-      </Txt>
-      <View style={{ flex: 1 }} />
-      <Button
-        title="Get Started"
-        onPress={() =>
-          step < 2 ? setStep(step + 1) : navigation.replace("SignIn")
-        }
-      />
-      <Tap
-        onPress={() => navigation.replace("Main")}
-        style={{ paddingTop: 18, alignItems: "center" }}
-      >
-        <Txt color={purple} size={12}>
-          Explore the app
+      <View style={{ padding: 28, flex: 1 }}>
+        <View style={{ flexDirection: "row", gap: 6, marginBottom: 22 }}>
+          {[0, 1, 2].map((i) => (
+            <View
+              key={i}
+              style={{
+                width: i === step ? 30 : 7,
+                height: 7,
+                borderRadius: 7,
+                backgroundColor: i === step ? "#7055E8" : t.line,
+              }}
+            />
+          ))}
+        </View>
+        <Txt
+          size={12}
+          color="#7055E8"
+          bold
+          style={{ letterSpacing: 2, marginBottom: 13 }}
+        >
+          READ. FEEL. DISCOVER.
         </Txt>
-      </Tap>
+        <Txt size={37} bold style={{ lineHeight: 43, marginBottom: 18 }}>
+          {
+            [
+              "A whole world.\nOne page away.",
+              "Let the story\ncome to life.",
+              "Find your rhythm.\nMake it yours.",
+            ][step]
+          }
+        </Txt>
+        <Txt
+          color={t.muted}
+          size={16}
+          style={{ lineHeight: 25, marginBottom: 28 }}
+        >
+          {
+            [
+              "Books to get lost in. Little moments to come back to. Welcome to your reading life.",
+              "After every page, explore beautiful short reels inspired by the world you just stepped into.",
+              "A personal library, thoughtful daily goals, and stories that follow your curiosity.",
+            ][step]
+          }
+        </Txt>
+        <Button
+          title={step === 2 ? "Create your reading life" : "Continue"}
+          icon="arrow-forward"
+          onPress={() =>
+            step < 2
+              ? setStep(step + 1)
+              : navigation.navigate(clerkKey ? "ClerkLogin" : "SignUp")
+          }
+        />
+        <Tap
+          onPress={() => navigation.navigate("SignIn")}
+          style={{ alignItems: "center", padding: 18 }}
+        >
+          <Txt color={t.muted}>
+            Already a reader?{" "}
+            <Txt bold color="#7055E8">
+              Sign in
+            </Txt>
+          </Txt>
+        </Tap>
+        <Tap
+          onPress={() => navigation.replace("Main")}
+          style={{ alignItems: "center", padding: 8 }}
+        >
+          <Txt size={12} color={t.muted}>
+            Take a look around
+          </Txt>
+        </Tap>
+      </View>
     </Page>
   );
 }
@@ -141,6 +186,23 @@ export function Auth({ navigation, route }: any) {
         <Txt style={{ marginBottom: 30 }}>
           Your books, progress, and conversations in one place.
         </Txt>
+        {clerkKey && (
+          <>
+            <Button
+              title="Continue with Clerk"
+              icon="lock"
+              secondary
+              onPress={() => navigation.navigate("ClerkLogin")}
+            />
+            <Txt
+              color="#888"
+              size={12}
+              style={{ textAlign: "center", marginVertical: 22 }}
+            >
+              or continue with email
+            </Txt>
+          </>
+        )}
         {signup && (
           <Field
             label="Name"
@@ -175,7 +237,10 @@ export function Auth({ navigation, route }: any) {
                 password,
                 ...(signup ? { name } : {}),
               });
-              navigation.reset({ index: 0, routes: [{ name: "Main" }] });
+              navigation.reset({
+                index: 0,
+                routes: [{ name: signup ? "Personalize" : "Main" }],
+              });
             })
           }
         />

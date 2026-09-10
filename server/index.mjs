@@ -1,4 +1,5 @@
 import express from "express";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -13,6 +14,7 @@ import {
 } from "node:crypto";
 import { promisify } from "node:util";
 import nodemailer from "nodemailer";
+import { createClerkClient, verifyToken } from "@clerk/backend";
 import { query, transaction, pool } from "./db.mjs";
 import { migrate } from "./migrate.mjs";
 import { reelsRouter, registerPublicReels } from "./reels.mjs";
@@ -26,12 +28,24 @@ const origins = (
 )
   .split(",")
   .map((x) => x.trim());
+if (process.env.VERCEL_URL) origins.push("https://" + process.env.VERCEL_URL);
+if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
+  origins.push("https://" + process.env.VERCEL_PROJECT_PRODUCTION_URL);
 app.disable("x-powered-by");
+if (process.env.VERCEL) app.set("trust proxy", 1);
 app.use(
   helmet(),
   cors({ origin: origins, credentials: true }),
   express.json({ limit: "32kb" }),
   cookieParser(),
+);
+app.use(
+  "/reels",
+  (req, res, next) => {
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(fileURLToPath(new URL("../public/reels/", import.meta.url))),
 );
 app.use(
   "/api",
@@ -171,7 +185,8 @@ app.get("/api/config", (req, res) =>
   res.json({
     passwordReset: !!process.env.SMTP_URL,
     payments: false,
-    socialLogin: false,
+    socialLogin: !!process.env.CLERK_SECRET_KEY,
+    reelUploadMaxMB: 3,
   }),
 );
 app.get("/api/books", async (req, res) => {
@@ -277,6 +292,41 @@ app.post("/api/auth/reset", async (req, res) => {
   });
   res.json({ ok: true });
 });
+app.post("/api/auth/clerk", async (req, res) => {
+  if (!process.env.CLERK_SECRET_KEY)
+    fail(503, "Social sign-in is not configured.");
+  const token = z.string().min(20).max(10000).parse(req.body.token);
+  let claims;
+  try {
+    claims = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+      authorizedParties: origins,
+    });
+  } catch {
+    fail(401, "Sign-in expired. Please try again.");
+  }
+  const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+  const identity = await client.users.getUser(claims.sub);
+  const address = identity.emailAddresses.find(
+    (a) =>
+      a.id === identity.primaryEmailAddressId &&
+      a.verification?.status === "verified",
+  );
+  if (!address) fail(403, "Verify your email address to continue.");
+  const email = address.emailAddress.toLowerCase();
+  const [user] = await query(
+    "INSERT INTO ibook.users(id,email,password_hash,name,clerk_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT(email) DO UPDATE SET clerk_id=EXCLUDED.clerk_id WHERE ibook.users.clerk_id IS NULL OR ibook.users.clerk_id=EXCLUDED.clerk_id RETURNING *",
+    [
+      randomUUID(),
+      email,
+      await passwordHash(randomBytes(40).toString("hex")),
+      identity.firstName || identity.username || email.split("@")[0],
+      identity.id,
+    ],
+  );
+  if (!user) fail(409, "This email belongs to a different identity.");
+  res.json(await session(res, user, req));
+});
 registerPublicReels(app);
 app.use("/api", auth);
 app.use("/api", reelsRouter);
@@ -324,6 +374,15 @@ app.get("/api/me", async (req, res) => {
 app.patch("/api/me", async (req, res) => {
   const data = z
     .object({
+      preferences: z
+        .object({
+          interests: z.array(z.string().trim().min(1).max(40)).max(12),
+          readingTime: z.enum(["morning", "afternoon", "evening"]),
+          reelsEnabled: z.boolean(),
+        })
+        .strict()
+        .optional(),
+      onboarding_completed: z.boolean().optional(),
       name: nameSchema.optional(),
       bio: z.string().trim().max(500).optional(),
       phone: z.string().trim().max(30).optional(),
@@ -346,7 +405,9 @@ app.patch("/api/me", async (req, res) => {
     [
       req.user.id,
       ...entries.map(([key, value]) =>
-        key === "reader_settings" ? JSON.stringify(value) : value,
+        ["reader_settings", "preferences"].includes(key)
+          ? JSON.stringify(value)
+          : value,
       ),
     ],
   );
@@ -617,13 +678,19 @@ app.use((error, req, res, next) => {
       : "The service could not complete this request. Please try again.",
   });
 });
-await migrate();
-const server = app.listen(Number(process.env.API_PORT || 3001), "0.0.0.0", () =>
-  console.log(`iBook API ready on port ${process.env.API_PORT || 3001}`),
-);
-process.on("SIGTERM", () =>
-  server.close(async () => {
-    await pool.end();
-    process.exit(0);
-  }),
-);
+export default app;
+if (!process.env.VERCEL) {
+  await migrate();
+  const server = app.listen(
+    Number(process.env.API_PORT || 3001),
+    "0.0.0.0",
+    () =>
+      console.log(`iBook API ready on port ${process.env.API_PORT || 3001}`),
+  );
+  process.on("SIGTERM", () =>
+    server.close(async () => {
+      await pool.end();
+      process.exit(0);
+    }),
+  );
+}

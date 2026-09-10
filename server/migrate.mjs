@@ -7,6 +7,7 @@ export async function migrate() {
     await q(
       await readFile(new URL("./reels-schema.sql", import.meta.url), "utf8"),
     );
+    await q(await readFile(new URL("./experience-schema.sql", import.meta.url), "utf8"));
   });
   const source = await readFile(
     new URL("../src/data.ts", import.meta.url),

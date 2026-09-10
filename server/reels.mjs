@@ -6,7 +6,7 @@ import {
   createHmac,
   timingSafeEqual,
 } from "node:crypto";
-import { mkdir, open, unlink } from "node:fs/promises";
+import { mkdir, open, unlink, readFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -16,10 +16,13 @@ import { z } from "zod";
 import { query, transaction } from "./db.mjs";
 import { rankReels } from "./reel-ranking.mjs";
 const runFile = promisify(execFile);
-const mediaRoot = path.resolve(process.env.MEDIA_DIR || "media");
+const mediaRoot = path.resolve(
+  process.env.MEDIA_DIR || (process.env.VERCEL ? "/tmp/ibook-media" : "media"),
+);
 await mkdir(mediaRoot, { recursive: true });
 const uuid = z.string().uuid();
-const reviewSecret = randomBytes(32);
+const reviewSecret =
+  process.env.CLERK_SECRET_KEY || process.env.DATABASE_URL || randomBytes(32);
 const signReview = (id, expires) =>
   createHmac("sha256", reviewSecret)
     .update(id + ":" + expires)
@@ -75,6 +78,53 @@ async function visibleReel(id, userId = null, q = query) {
   if (!r) fail(404, "Reel is unavailable.");
   return r;
 }
+function sendMedia(req, res, m) {
+  if (!m.payload)
+    return res.sendFile(
+      m.filename,
+      { root: mediaRoot, dotfiles: "deny" },
+      (e) => {
+        if (e && !res.headersSent)
+          res.status(404).json({ error: "Video unavailable." });
+      },
+    );
+  const bytes = m.payload;
+  res.set("Accept-Ranges", "bytes");
+  if (req.headers.range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+    if (!match || (!match[1] && !match[2]))
+      return res
+        .status(416)
+        .set("Content-Range", `bytes */${bytes.length}`)
+        .end();
+    const start = match[1]
+      ? Number(match[1])
+      : Math.max(0, bytes.length - Number(match[2]));
+    const end =
+      match[1] && match[2]
+        ? Math.min(Number(match[2]), bytes.length - 1)
+        : bytes.length - 1;
+    if (
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end) ||
+      start > end ||
+      start >= bytes.length
+    )
+      return res
+        .status(416)
+        .set("Content-Range", `bytes */${bytes.length}`)
+        .end();
+    res
+      .status(206)
+      .set({
+        "Content-Range": `bytes ${start}-${end}/${bytes.length}`,
+        "Content-Length": String(end - start + 1),
+      });
+    return res.end(bytes.subarray(start, end + 1));
+  }
+  res.set("Content-Length", String(bytes.length));
+  res.end(bytes);
+}
 export function registerPublicReels(app) {
   app.get("/api/reel-review-media/:id", async (req, res) => {
     const id = uuid.parse(req.params.id),
@@ -96,10 +146,7 @@ export function registerPublicReels(app) {
     if (!m) fail(404, "Video unavailable.");
     res.set("Cross-Origin-Resource-Policy", "cross-origin");
     res.type(m.mime);
-    res.sendFile(m.filename, { root: mediaRoot, dotfiles: "deny" }, (error) => {
-      if (error && !res.headersSent)
-        res.status(404).json({ error: "Video file unavailable." });
-    });
+    sendMedia(req, res, m);
   });
   app.get("/api/reel-public/:id", async (req, res) =>
     res.json(await visibleReel(req.params.id)),
@@ -112,10 +159,7 @@ export function registerPublicReels(app) {
     if (!m) fail(404, "Video unavailable.");
     res.set("Cross-Origin-Resource-Policy", "cross-origin");
     res.type(m.mime);
-    res.sendFile(m.filename, { root: mediaRoot, dotfiles: "deny" }, (error) => {
-      if (error && !res.headersSent)
-        res.status(404).json({ error: "Video file unavailable." });
-    });
+    sendMedia(req, res, m);
   });
 }
 export const reelsRouter = express.Router();
@@ -194,7 +238,7 @@ const upload = multer({
     destination: mediaRoot,
     filename: (req, file, cb) => cb(null, randomUUID() + ".video"),
   }),
-  limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 0 },
+  limits: { fileSize: 3 * 1024 * 1024, files: 1, fields: 0 },
   fileFilter: (req, file, cb) =>
     cb(
       null,
@@ -217,7 +261,7 @@ reelsRouter.post("/reel-upload", publishLimit, async (req, res, next) => {
         Object.assign(
           new Error(
             error.code === "LIMIT_FILE_SIZE"
-              ? "Video must be smaller than 50 MB."
+              ? "Video must be smaller than 3 MB."
               : "Upload failed. Choose one MP4 or WebM file.",
           ),
           { status: 400 },
@@ -280,9 +324,18 @@ reelsRouter.post("/reel-upload", publishLimit, async (req, res, next) => {
         : "video/mp4";
       const id = randomUUID();
       await query(
-        "INSERT INTO ibook.reel_media(id,owner_id,filename,mime,bytes,duration_seconds) VALUES($1,$2,$3,$4,$5,$6)",
-        [id, req.user.id, req.file.filename, mime, req.file.size, duration],
+        "INSERT INTO ibook.reel_media(id,owner_id,filename,mime,bytes,duration_seconds,payload) VALUES($1,$2,$3,$4,$5,$6,$7)",
+        [
+          id,
+          req.user.id,
+          req.file.filename,
+          mime,
+          req.file.size,
+          duration,
+          await readFile(req.file.path),
+        ],
       );
+      await unlink(req.file.path).catch(() => {});
       res.status(201).json({ id, durationSeconds: duration });
     } catch (error) {
       await unlink(req.file.path).catch(() => {});

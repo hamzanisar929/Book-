@@ -1,0 +1,9 @@
+.env*
+!.env.example
+verification/
+node_modules/
+.git/
+.expo/
+assets/reference/
+media/
+tests/

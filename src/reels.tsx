@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
+  Image,
   Linking,
   Platform,
   ScrollView,
@@ -12,8 +13,11 @@ import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useVideoPlayer, VideoView } from "expo-video";
 import * as DocumentPicker from "expo-document-picker";
 import { LinearGradient } from "expo-linear-gradient";
+import { art } from "./assets";
 import { api, apiBase, useStore } from "./store";
 import {
+  Glass,
+  useTheme,
   Button,
   Card,
   Field,
@@ -82,11 +86,34 @@ export function PageReels({ bookId, page, navigation }: any) {
       };
     }, [bookId, page, reload]),
   );
+  const [playing, setPlaying] = useState<string | null>(null);
+  const t = useTheme();
+  useEffect(() => setPlaying(null), [bookId, page]);
   return (
-    <Section title="See this page come alive">
-      <Txt style={{ marginBottom: 14 }}>
-        Watch a new perspective. Share your own.
-      </Txt>
+    <View style={{ marginBottom: 28 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 12,
+          alignItems: "center",
+          marginBottom: 18,
+        }}
+      >
+        <View style={{ width: 1, height: 30, backgroundColor: t.line }} />
+        <View>
+          <Txt
+            size={10}
+            color="#8B7DB6"
+            bold
+            style={{ letterSpacing: 2, marginBottom: 6 }}
+          >
+            BEYOND THE PAGE
+          </Txt>
+          <Txt bold size={23}>
+            Let this moment linger.
+          </Txt>
+        </View>
+      </View>
       <Feedback error={error} busy={loading} />
       {error && (
         <Button
@@ -95,75 +122,128 @@ export function PageReels({ bookId, page, navigation }: any) {
           onPress={() => setReload((n) => n + 1)}
         />
       )}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 12, paddingBottom: 8 }}
-      >
-        {items.slice(0, 6).map((r, i) => (
-          <Tap
-            key={r.id}
-            label={"Watch " + r.title}
-            onPress={() =>
-              navigation.navigate("Reels", { bookId, page, startId: r.id })
-            }
-          >
-            <LinearGradient
-              colors={i % 2 ? ["#275F64", "#142D41"] : ["#6550BA", "#292143"]}
-              style={{
-                width: 190,
-                height: 245,
-                borderRadius: 22,
-                padding: 18,
-                justifyContent: "space-between",
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                }}
+      {items.slice(0, 2).map((r) => (
+        <View
+          key={r.id}
+          style={{
+            borderRadius: 28,
+            overflow: "hidden",
+            backgroundColor: t.card,
+            marginBottom: 16,
+          }}
+        >
+          {playing === r.id ? (
+            <ReelPlayer reel={r} authenticated autoPlay />
+          ) : (
+            <Tap label={"Watch " + r.title} onPress={() => setPlaying(r.id)}>
+              <View style={{ height: 290, backgroundColor: "#241E37" }}>
+                <Image
+                  source={art[bookId as keyof typeof art] || art.hero}
+                  style={{ width: "100%", height: "100%" }}
+                />
+                <LinearGradient
+                  colors={["#080B1820", "#080B18C0"]}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    padding: 22,
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Txt color="white" size={11} bold>
+                      PAGE {page + 1} · VISUAL REEL
+                    </Txt>
+                    <Txt color="#FFFFFFCC" size={11}>
+                      {Math.round(r.duration_seconds)}s
+                    </Txt>
+                  </View>
+                  <View>
+                    <Glass
+                      style={{
+                        width: 62,
+                        height: 62,
+                        borderRadius: 31,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: 20,
+                      }}
+                    >
+                      <Icon name="play" color="white" size={28} />
+                    </Glass>
+                    <Txt bold color="white" size={24}>
+                      {r.title}
+                    </Txt>
+                    <Txt color="#FFFFFFB0" size={11} style={{ marginTop: 9 }}>
+                      {r.creator_name}
+                    </Txt>
+                  </View>
+                </LinearGradient>
+              </View>
+            </Tap>
+          )}
+          <View style={{ padding: 20 }}>
+            <Txt size={13} color={t.muted} style={{ lineHeight: 21 }}>
+              {r.caption}
+            </Txt>
+            <View style={{ flexDirection: "row", gap: 20, marginTop: 17 }}>
+              <Tap
+                onPress={() => navigation.navigate("Reel", { reelId: r.id })}
+                style={{ flexDirection: "row", gap: 7, alignItems: "center" }}
               >
-                <Txt size={11} color="#EEE8FF">
-                  PAGE {page + 1}
+                <Icon name="heart" size={20} />
+                <Txt size={12}>{r.likes || 0}</Txt>
+              </Tap>
+              <Tap
+                onPress={() =>
+                  navigation.navigate("ReelComments", { reelId: r.id })
+                }
+              >
+                <Icon name="chatbubble" size={20} />
+              </Tap>
+              <Tap
+                label="Save or share reel"
+                onPress={() => navigation.navigate("Reel", { reelId: r.id })}
+              >
+                <Icon name="bookmark" size={20} />
+              </Tap>
+              <View style={{ flex: 1 }} />
+              <Tap
+                onPress={() =>
+                  navigation.navigate("Reels", { bookId, page, startId: r.id })
+                }
+              >
+                <Txt size={12} bold color="#7055E8">
+                  Explore reels
                 </Txt>
-                <Icon name="play-circle" color="white" size={32} />
-              </View>
-              <View>
-                <Txt color="white" bold size={18}>
-                  {r.title}
-                </Txt>
-                <Txt color="#E3DCF4" size={11} style={{ marginTop: 12 }}>
-                  {r.creator_name}
-                </Txt>
-                <Txt color="#E3DCF4" size={11}>
-                  {r.external_url
-                    ? "External reel"
-                    : `${Math.round(r.duration_seconds)} sec`}{" "}
-                  · {r.creator_id ? "Community" : "Starter clip"}
-                </Txt>
-              </View>
-            </LinearGradient>
-          </Tap>
-        ))}
-      </ScrollView>
+              </Tap>
+            </View>
+          </View>
+        </View>
+      ))}
       {!loading && !error && !items.length && (
-        <Empty text="Be the first to bring this page to life with a reel." />
+        <Empty text="A new perspective is waiting to be shared. Add the first reel for this page." />
       )}
-      <View style={{ ...gap, marginBottom: 24 }}>
-        <Button
-          title="Explore page reels"
-          icon="play-circle-outline"
-          onPress={() => navigation.navigate("Reels", { bookId, page })}
-        />
-        <Button
-          title="Create a reel for this page"
-          secondary
-          icon="add"
-          onPress={() => navigation.navigate("AddReel", { bookId, page })}
-        />
-      </View>
-    </Section>
+      <Tap
+        onPress={() => navigation.navigate("AddReel", { bookId, page })}
+        style={{
+          flexDirection: "row",
+          justifyContent: "center",
+          gap: 8,
+          padding: 14,
+        }}
+      >
+        <Icon name="add" size={17} />
+        <Txt size={12} color="#7055E8">
+          Add your perspective
+        </Txt>
+      </Tap>
+    </View>
   );
 }
 
@@ -172,9 +252,11 @@ export function PageReels({ bookId, page, navigation }: any) {
 function ReelPlayer({
   reel,
   authenticated,
+  autoPlay = false,
 }: {
   reel: Reel;
   authenticated: boolean;
+  autoPlay?: boolean;
 }) {
   const focused = useIsFocused();
   const { height } = useWindowDimensions();
@@ -187,6 +269,12 @@ function ReelPlayer({
     p.timeUpdateEventInterval = 1;
     p.loop = false;
   });
+  useEffect(() => {
+    if (autoPlay && focused) {
+      player.muted = true;
+      player.play();
+    }
+  }, [player, autoPlay, focused]);
   useEffect(() => {
     let active = true,
       viewId = "",
@@ -789,8 +877,8 @@ export function AddReel({ navigation, route }: any) {
     });
     if (result.canceled) return;
     const file = result.assets[0];
-    if ((file.size || 0) > 50 * 1024 * 1024)
-      throw new Error("Choose a video smaller than 50 MB.");
+    if ((file.size || 0) > 3 * 1024 * 1024)
+      throw new Error("Choose a video smaller than 3 MB.");
     const form = new FormData();
     if (Platform.OS === "web" && file.file) form.append("video", file.file);
     else
@@ -853,7 +941,7 @@ export function AddReel({ navigation, route }: any) {
         </View>
         {mode === "upload" ? (
           <View style={gap}>
-            <Txt>MP4 or WebM · 1–90 seconds · up to 50 MB</Txt>
+            <Txt>MP4 or WebM · 1–90 seconds · up to 3 MB</Txt>
             <Button
               title={media ? "Choose a different video" : "Choose video"}
               secondary

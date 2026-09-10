@@ -19,7 +19,9 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { AppSymbol } from "./symbols";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
 import {
   GlassView,
@@ -37,11 +39,11 @@ export function useTheme() {
   return {
     dark,
     setDark,
-    bg: dark ? "#111111" : "#FFFFFF",
-    card: dark ? "#282828" : "#F5F5F8",
-    ink: dark ? "#E4E2EB" : "#41414F",
-    muted: dark ? "#9995A6" : "#9C99AA",
-    heading: dark ? purple : "#41414F",
+    bg: dark ? "#101117" : "#F8F7FC",
+    card: dark ? "#20212B" : "#EFEDF6",
+    ink: dark ? "#F1F0F8" : "#252332",
+    muted: dark ? "#A7A5B6" : "#777486",
+    heading: dark ? "#F1F0F8" : "#252332",
     line: dark ? "#37343F" : "#ECEBF1",
   };
 }
@@ -59,7 +61,12 @@ export function Txt({
       {...rest}
       style={[
         {
-          fontFamily: bold ? "Poppins_600SemiBold" : "Poppins_400Regular",
+          fontFamily:
+            Platform.OS === "web"
+              ? "-apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif"
+              : undefined,
+          fontWeight: bold ? "600" : "400",
+          letterSpacing: size >= 24 ? -0.8 : 0,
           fontSize: size,
           color: color || t.ink,
         },
@@ -87,7 +94,11 @@ export function Tap({
         accessibilityRole="button"
         accessibilityLabel={label}
         onLongPress={onLongPress}
-        onPress={onPress}
+        onPress={(event) => {
+          if (Platform.OS !== "web")
+            void Haptics.selectionAsync().catch(() => {});
+          onPress?.(event);
+        }}
         onPressIn={() =>
           Animated.spring(v, {
             toValue: 0.96,
@@ -115,7 +126,7 @@ export function Icon({
   color = purple,
   size = 23,
 }: any) {
-  return <Ionicons name={name} size={size} color={color} />;
+  return <AppSymbol name={name} size={size} color={color} />;
 }
 export function IconButton({ name, onPress, light = false, label }: any) {
   const t = useTheme();
@@ -182,6 +193,7 @@ export function Page({
   scroll = true,
   style,
   bottom = 30,
+  scrollRef,
 }: any) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -191,6 +203,7 @@ export function Page({
     >
       {scroll ? (
         <ScrollView
+          ref={scrollRef}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
@@ -343,7 +356,7 @@ export function Field({
             flex: 1,
             paddingVertical: 15,
             paddingHorizontal: icon ? 10 : 0,
-            fontFamily: "Poppins_400Regular",
+            fontFamily: Platform.OS === "web" ? "system-ui" : undefined,
             fontSize: 14,
             color: t.ink,
           }}
@@ -359,22 +372,44 @@ export function Field({
     </View>
   );
 }
-export function Avatar({ index = 0, size = 46, source, ring = false }: any) {
+export function Avatar({
+  index = 0,
+  size = 46,
+  ring = false,
+  name = "",
+  source,
+}: any) {
+  const colors = [
+    ["#DCD4FF", "#9F8BEE"],
+    ["#D4E8EE", "#77A6AE"],
+    ["#F7DDCE", "#DCAB87"],
+  ] as const;
   return (
-    <View
+    <LinearGradient
+      colors={colors[index % 3]}
       style={{
-        padding: ring ? 4 : 0,
-        borderWidth: ring ? 3 : 0,
-        borderColor: purple,
-        borderRadius: size,
-        alignSelf: "flex-start",
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: ring ? 3 : 1,
+        borderColor: "#FFFFFF88",
       }}
     >
-      <Image
-        source={source || art[`avatar${index % 5}` as keyof typeof art]}
-        style={{ width: size, height: size, borderRadius: size }}
-      />
-    </View>
+      {name ? (
+        <Txt size={size * 0.34} bold color="#48405F">
+          {name
+            .split(" ")
+            .map((x: string) => x[0])
+            .slice(0, 2)
+            .join("")
+            .toUpperCase()}
+        </Txt>
+      ) : (
+        <AppSymbol name="person" color="#655884" size={size * 0.43} />
+      )}
+    </LinearGradient>
   );
 }
 export function BookRow({
@@ -445,36 +480,52 @@ export function BookRow({
     </View>
   );
 }
-export function BookCover({ book, large = false }: any) {
-  const width = large ? 170 : 78;
-  const height = large ? 240 : 110;
-  if (book.id === "reading-guide")
-    return (
-      <View
+export function BookCover({ book, large = false, width: custom }: any) {
+  const width = custom || (large ? 188 : 82),
+    height = width * 1.43;
+  return (
+    <View
+      style={{
+        width,
+        height,
+        borderRadius: 12,
+        overflow: "hidden",
+        backgroundColor: "#332745",
+        borderLeftWidth: 3,
+        borderLeftColor: "#FFFFFF40",
+      }}
+    >
+      <Image
+        source={book.image || art[book.id as keyof typeof art] || art.ocean}
+        style={{position:"absolute",top:0,left:0,width,height}}
+      />
+      <LinearGradient
+        colors={["#080B1800", "#080B1820", "#080B18DF"]}
         style={{
-          width,
-          height,
-          backgroundColor: "#47329E",
-          borderRadius: 9,
-          padding: large ? 18 : 9,
-          justifyContent: "space-between",
-          borderLeftWidth: 5,
-          borderLeftColor: "#A798EF",
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          justifyContent: "flex-end",
+          padding: width * 0.09,
         }}
       >
-        <Txt size={large ? 12 : 7} color="#DCD4FF">
-          THE iBOOK SERIES
+        <Txt
+          color="white"
+          size={large || custom ? Math.max(14, width * 0.115) : 10}
+          bold
+          numberOfLines={3}
+        >
+          {book.title}
         </Txt>
-        <Txt size={large ? 24 : 12} bold color="white">
-          A Small Guide to Reading
-        </Txt>
-        <Txt size={large ? 11 : 7} color="#DCD4FF">
-          ONE PAGE AT A TIME
-        </Txt>
-      </View>
-    );
-  return (
-    <Image source={book.image} style={{ width, height, borderRadius: 9 }} />
+        {(large || custom) && (
+          <Txt color="#FFFFFFBB" size={10} style={{ marginTop: 7 }}>
+            {book.author}
+          </Txt>
+        )}
+      </LinearGradient>
+    </View>
   );
 }
 export function Card({ children, style }: any) {
@@ -495,17 +546,50 @@ export function Card({ children, style }: any) {
   );
 }
 export function Art({ name, size = 200, style }: any) {
-  const t = useTheme();
-  const key = (name + "-" + (t.dark ? "dark" : "light")) as keyof typeof art;
+  const icon =
+    (
+      {
+        logo: "book",
+        empty: "folder-open",
+        check: "checkmark-circle",
+        bulb: "sparkles",
+        coffee: "leaf",
+        bell: "notifications",
+        trash: "trash",
+        timer: "timer",
+        trophy: "trophy",
+        orbit: "people",
+      } as any
+    )[name] || "sparkles";
   return (
-    <Image
-      source={art[key] || art[name as keyof typeof art]}
-      resizeMode="contain"
+    <View
       style={[
-        { width: size, maxWidth: "100%", height: size, alignSelf: "center" },
+        {
+          width: size,
+          height: size,
+          alignSelf: "center",
+          alignItems: "center",
+          justifyContent: "center",
+        },
         style,
       ]}
-    />
+    >
+      <LinearGradient
+        colors={["#ECE7FF", "#C5B5F5", "#8970DC"]}
+        style={{
+          width: size * 0.72,
+          height: size * 0.72,
+          borderRadius: size * 0.25,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 1,
+          borderColor: "#FFFFFFCC",
+          transform: [{ rotate: "-8deg" }],
+        }}
+      >
+        <AppSymbol name={icon} color="white" size={size * 0.36} animated />
+      </LinearGradient>
+    </View>
   );
 }
 export function FloatArt({ name, size = 200 }: any) {
@@ -567,7 +651,7 @@ export function Glass({ children, style }: any) {
       tint={t.dark ? "dark" : "light"}
       style={[
         {
-          backgroundColor: t.dark ? "#282828E8" : "#FFFFFFE8",
+          backgroundColor: t.dark ? "#242430AA" : "#FFFFFFAA",
           overflow: "hidden",
           borderWidth: 1,
           borderColor: t.dark ? "#FFFFFF20" : "#FFFFFFBB",

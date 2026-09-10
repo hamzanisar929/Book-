@@ -1,3 +1,6 @@
+import Personalize from "./src/personalize";
+import ClerkLogin from "./src/clerk-login";
+import { ClerkShell } from "./src/clerk-shell";
 import { StoreProvider, useStore } from "./src/store";
 import {
   AddReel,
@@ -23,9 +26,6 @@ import {
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
-import { useFonts } from "expo-font";
-const Poppins_400Regular = require("@expo-google-fonts/poppins/400Regular/Poppins_400Regular.ttf");
-const Poppins_600SemiBold = require("@expo-google-fonts/poppins/600SemiBold/Poppins_600SemiBold.ttf");
 import {
   Glass,
   Button,
@@ -143,17 +143,21 @@ function TabBar({ state, navigation }: any) {
             >
               <Icon
                 name={
-                  [
-                    "home-outline",
-                    "book-outline",
-                    "bag-outline",
-                    "search-outline",
-                  ][i]
+                  ["home-outline", "book-outline", "compass", "search-outline"][
+                    i
+                  ]
                 }
                 color={state.index === i ? purple : t.muted}
                 size={24}
               />
-              {state.index === i && (
+              <Txt
+                size={9}
+                color={state.index === i ? purple : t.muted}
+                style={{ marginTop: 4 }}
+              >
+                {["Today", "Library", "Discover", "Search"][i]}
+              </Txt>
+              {false && (
                 <View
                   style={{
                     width: 4,
@@ -185,6 +189,8 @@ function Main() {
   );
 }
 const screens: any = {
+  Personalize,
+  ClerkLogin,
   Reels: ReelsScreen,
   Reel: ReelScreen,
   AddReel,
@@ -247,6 +253,8 @@ const appLinks: any = {
           Search: "search",
         },
       },
+      Personalize: "welcome",
+      ClerkLogin: "clerk",
       Settings: "settings",
       Reader: "reader/:bookId?",
       Reel: "reels/:reelId",
@@ -268,10 +276,8 @@ function AppContent() {
   useEffect(() => {
     setDark(store.user?.dark || false);
   }, [store.user?.dark]);
-  const [fontsLoaded, fontError] = useFonts({
-    Poppins_400Regular,
-    Poppins_600SemiBold,
-  });
+  const fontsLoaded = true,
+    fontError = false;
   if (!store.ready || (!fontsLoaded && !fontError))
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -295,7 +301,13 @@ function AppContent() {
               linking={appLinks}
             >
               <Stack.Navigator
-                initialRouteName={store.user ? "Main" : "Onboarding"}
+                initialRouteName={
+                  store.user
+                    ? store.user.onboarding_completed
+                      ? "Main"
+                      : "Personalize"
+                    : "Onboarding"
+                }
                 screenOptions={{
                   headerShown: false,
                   animation: "slide_from_right",
@@ -346,8 +358,10 @@ function TitleFallback() {
 
 export default function App() {
   return (
-    <StoreProvider>
-      <AppContent />
-    </StoreProvider>
+    <ClerkShell>
+      <StoreProvider>
+        <AppContent />
+      </StoreProvider>
+    </ClerkShell>
   );
 }

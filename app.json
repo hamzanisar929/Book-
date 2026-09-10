@@ -28,7 +28,8 @@
       "expo-font",
       "expo-secure-store",
       "expo-sharing",
-      "expo-video"
+      "expo-video",
+      "expo-web-browser"
     ],
     "scheme": "ibook"
   }

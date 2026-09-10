@@ -22,6 +22,13 @@ export type CatalogBook = {
 };
 type User = {
   reel_moderator?: boolean;
+  clerk_id?: string;
+  onboarding_completed?: boolean;
+  preferences?: {
+    interests: string[];
+    readingTime: string;
+    reelsEnabled: boolean;
+  };
   id: string;
   email: string;
   name: string;
@@ -50,8 +57,13 @@ const empty: State = {
   notifications: [],
 };
 let nativeToken: string | null = null;
+let providerLogout: (() => Promise<unknown>) | null = null;
+export function registerProviderLogout(fn: () => Promise<unknown>) {
+  providerLogout = fn;
+}
 export const apiBase =
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:3001";
+  process.env.EXPO_PUBLIC_API_URL ||
+  (Platform.OS === "web" ? "" : "http://localhost:3001");
 export async function api(
   path: string,
   method = "GET",
@@ -174,12 +186,23 @@ export function StoreProvider({ children }: any) {
     generation.current++;
     await refresh();
   }
+  async function exchangeClerk(token: string) {
+    const result = await api("/auth/clerk", "POST", { token });
+    if (Platform.OS !== "web") {
+      nativeToken = result.token;
+      await SecureStore.setItemAsync("ibook-session", result.token);
+    }
+    generation.current++;
+    await refresh();
+    return result.user;
+  }
   async function logout() {
     try {
       await api("/logout", "POST", {});
     } catch (error: any) {
       if (error.status !== 401) throw error;
     }
+    if (state.user?.clerk_id && providerLogout) await providerLogout();
     generation.current++;
     if (Platform.OS !== "web")
       await SecureStore.deleteItemAsync("ibook-session");
@@ -213,6 +236,7 @@ export function StoreProvider({ children }: any) {
         refresh,
         loadBooks,
         login,
+        exchangeClerk,
         logout,
         mutate,
         retry: boot,
@@ -230,6 +254,7 @@ export function useStore(): State & {
   loadBooks: () => Promise<void>;
   login: (signup: boolean, data: any) => Promise<void>;
   logout: () => Promise<void>;
+  exchangeClerk: (token: string) => Promise<User>;
   mutate: (path: string, method?: string, body?: any) => Promise<any>;
   retry: () => Promise<void>;
 } {
