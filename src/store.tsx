@@ -21,6 +21,7 @@ export type CatalogBook = {
   image: any;
 };
 type User = {
+  reel_moderator?: boolean;
   id: string;
   email: string;
   name: string;
@@ -57,14 +58,18 @@ export async function api(
   body?: unknown,
 ): Promise<any> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  const multipart = body instanceof FormData;
+  const timeout = setTimeout(
+    () => controller.abort(),
+    multipart ? 120000 : 20000,
+  );
   try {
     const response = await fetch(`${apiBase}/api${path}`, {
       method,
       credentials: Platform.OS === "web" ? "include" : "omit",
       signal: controller.signal,
       headers: {
-        "Content-Type": "application/json",
+        ...(!multipart ? { "Content-Type": "application/json" } : {}),
         ...(Platform.OS !== "web"
           ? {
               "X-iBook-Client": "native",
@@ -74,7 +79,9 @@ export async function api(
             }
           : {}),
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined
+        ? { body: multipart ? (body as FormData) : JSON.stringify(body) }
+        : {}),
     });
     const data = await response.json();
     if (!response.ok) {

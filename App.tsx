@@ -1,4 +1,12 @@
 import { StoreProvider, useStore } from "./src/store";
+import {
+  AddReel,
+  ReelsScreen,
+  ReelScreen,
+  ReelComments,
+  ReelModeration,
+  ModeratorReel,
+} from "./src/reels";
 import "react-native-gesture-handler";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -177,6 +185,12 @@ function Main() {
   );
 }
 const screens: any = {
+  Reels: ReelsScreen,
+  Reel: ReelScreen,
+  AddReel,
+  ReelComments,
+  ReelModeration,
+  ModeratorReel,
   Main,
 
   Splash,
@@ -235,6 +249,9 @@ const appLinks: any = {
       },
       Settings: "settings",
       Reader: "reader/:bookId?",
+      Reel: "reels/:reelId",
+      Reels: "page-reels/:bookId/:page",
+      ReelModeration: "reel-moderation",
       Book: "book/:bookId?",
       Onboarding: "onboarding",
       Profile: "profile",

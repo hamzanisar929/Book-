@@ -10,6 +10,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { api, useStore } from "./store";
+import { PageReels } from "./reels";
 import { Empty, Feedback, RequireAccount, useAction } from "./functional-ui";
 import {
   BookCover,
@@ -144,13 +145,26 @@ export function Reader({ navigation, route }: any) {
   const id = route.params?.bookId || "reading-guide";
   const { book, error } = useBook(id);
   const entry = store.library.find((l) => l.book_id === id);
-  const [page, setPage] = useState(entry?.page || 0),
+  const linkedPage = Number(route.params?.page);
+  const [page, setPage] = useState(
+      Number.isInteger(linkedPage) && linkedPage >= 0
+        ? linkedPage
+        : entry?.page || 0,
+    ),
     [settings, setSettings] = useState(false),
     [fontSize, setFontSize] = useState(
       store.user?.reader_settings.fontSize || 18,
     ),
     [theme, setTheme] = useState(store.user?.reader_settings.theme || "paper");
   const currentUser = useRef(store.user);
+  useEffect(() => {
+    if (
+      Number.isInteger(linkedPage) &&
+      linkedPage >= 0 &&
+      book?.chapters?.length
+    )
+      setPage(Math.min(linkedPage, book.chapters.length - 1));
+  }, [id, linkedPage, book?.chapters?.length]);
   currentUser.current = store.user;
   useFocusEffect(
     useCallback(() => {
@@ -193,6 +207,7 @@ export function Reader({ navigation, route }: any) {
   async function move(next: number, finished = false) {
     await store.mutate("/library/" + id, "PUT", { page: next, finished });
     setPage(next);
+    navigation.setParams({ page: next });
   }
   const chapter = book?.chapters?.[page];
   return (
@@ -330,6 +345,7 @@ export function Reader({ navigation, route }: any) {
                   }
                 />
               </View>
+              <PageReels bookId={id} page={page} navigation={navigation} />
               <Button
                 title={
                   entry?.bookmarked ? "Remove bookmark" : "Bookmark this book"

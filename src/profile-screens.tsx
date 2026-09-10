@@ -223,6 +223,12 @@ export function Settings({ navigation }: any) {
           title="Privacy information"
           onPress={() => navigation.navigate("Privacy")}
         />
+        {store.user?.reel_moderator && (
+          <Row
+            title="Review reported reels"
+            onPress={() => navigation.navigate("ReelModeration")}
+          />
+        )}
         <Row title="Help Center" onPress={() => navigation.navigate("Help")} />
         {blocked.length > 0 && (
           <Section title="Blocked readers">
@@ -489,7 +495,7 @@ export function Info({ navigation, route }: any) {
           {name === "Gift"
             ? "Gift codes are unavailable until a payment service is connected."
             : name === "Privacy"
-              ? "iBook stores your account, saved books, collections, reading time, reviews, settings, and messages in its PostgreSQL database. Your display name, bio, and published reviews are visible to other readers. Your library and collections are private. Passwords are stored as salted hashes. Messages are accessible to their participants and the service operator; they are not end-to-end encrypted. No card details are collected."
+              ? "iBook stores your account, saved books, collections, reading time, reviews, settings, messages and reel interactions in its PostgreSQL database. Published reels, captions and comments are public, including through shared links. Uploaded videos are stored by the service. Watch time, likes, saves and shares personalize page reels; reset watch history from the reels screen. Reports are reviewed by appointed moderators. Your display name, bio, and published reviews are visible to other readers. Your library and collections are private. Passwords are stored as salted hashes. Messages are accessible to their participants and the service operator; they are not end-to-end encrypted. No card details are collected."
               : "Use the free reading guide and organize catalog titles in your library. Catalog entries do not grant access to the full copyrighted books. Publish reviews in your own words and respect other readers. Payments and paid memberships are unavailable. The service operator must publish applicable terms and contact details before a public launch."}
         </Txt>
       )}

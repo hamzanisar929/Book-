@@ -15,6 +15,7 @@ import { promisify } from "node:util";
 import nodemailer from "nodemailer";
 import { query, transaction, pool } from "./db.mjs";
 import { migrate } from "./migrate.mjs";
+import { reelsRouter, registerPublicReels } from "./reels.mjs";
 const scrypt = promisify(scryptCallback);
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const app = express();
@@ -77,7 +78,13 @@ const cookieOptions = {
 };
 const publicUser = (u) => {
   const { password_hash, ...safe } = u;
-  return safe;
+  return {
+    ...safe,
+    reel_moderator: (process.env.REEL_MODERATOR_IDS || "")
+      .split(",")
+      .map((id) => id.trim())
+      .includes(u.id),
+  };
 };
 async function passwordHash(password) {
   const salt = randomBytes(16).toString("hex");
@@ -270,7 +277,9 @@ app.post("/api/auth/reset", async (req, res) => {
   });
   res.json({ ok: true });
 });
+registerPublicReels(app);
 app.use("/api", auth);
+app.use("/api", reelsRouter);
 app.post("/api/logout", async (req, res) => {
   await query("DELETE FROM ibook.sessions WHERE token_hash=$1", [
     hash(req.token),

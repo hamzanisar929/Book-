@@ -4,6 +4,9 @@ export async function migrate() {
   await transaction(async (q) => {
     await q("SELECT pg_advisory_xact_lock(19782921)");
     await q(await readFile(new URL("./schema.sql", import.meta.url), "utf8"));
+    await q(
+      await readFile(new URL("./reels-schema.sql", import.meta.url), "utf8"),
+    );
   });
   const source = await readFile(
     new URL("../src/data.ts", import.meta.url),
@@ -68,6 +71,26 @@ export async function migrate() {
       JSON.stringify(chapters),
     ],
   );
+  const seeds = JSON.parse(
+    await readFile(new URL("./reel-seeds.json", import.meta.url), "utf8"),
+  );
+  for (const r of seeds)
+    await query(
+      "INSERT INTO ibook.reels(id,book_id,page,title,caption,tags,video_url,source_url,attribution,license,duration_seconds) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(id) DO NOTHING",
+      [
+        r.id,
+        "reading-guide",
+        r.page,
+        r.title,
+        r.caption,
+        r.tags,
+        r.videoUrl,
+        r.sourceUrl,
+        r.attribution,
+        "Pexels License — https://www.pexels.com/license/",
+        r.duration,
+      ],
+    );
 }
 if (process.argv[1]?.endsWith("migrate.mjs")) {
   try {
